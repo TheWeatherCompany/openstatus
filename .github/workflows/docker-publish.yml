@@ -26,8 +26,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: openstatus
+  # ECR is the canonical registry for this fork (private). See
+  # ADR 0002 in TheWeatherCompany/mercury-openstatus for the rationale.
+  # `${{ vars.AWS_ACCOUNT_ID }}` is provided by the GitHub Environment
+  # the workflow runs in (defaults to dev = 466623783948 for main pushes).
 
 jobs:
   prepare:
@@ -79,10 +81,13 @@ jobs:
     needs: [prepare]
     if: needs.prepare.outputs.services != '[]'
     timeout-minutes: 30
+    # GitHub Environment provides AWS_ACCOUNT_ID + AWS_REGION vars (Mercury
+    # convention — same as mercury-actions release.yaml). Phase 1 publishes
+    # to dev only; nonprod/prod ECR is fed by replication when promoted.
+    environment: dev
     permissions:
       contents: read
-      id-token: write
-      packages: write
+      id-token: write   # OIDC → AWS assume role (ECR push)
 
     strategy:
       fail-fast: false
@@ -120,24 +125,40 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Lowercase owner
-        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Container Registry
-        uses: docker/login-action@v3
+      # ─────────────────────────────────────────────────────────────────────
+      # AWS ECR auth (TheWeatherCompany fork only — pushes to private ECR)
+      #
+      # See docs/adr/0002 in TheWeatherCompany/mercury-openstatus for the
+      # GHCR-vs-ECR decision. In short: fork is private; charts pull from
+      # ECR using existing EKS node IAM; CI auths via OIDC + assume role,
+      # matching mercury-actions/release.yaml. dev-only push for Phase 1;
+      # ECR replication to nonprod/prod is added at promote time.
+      # ─────────────────────────────────────────────────────────────────────
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/mercury-github-actions-su
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Login to ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Ensure ECR repository exists
+        run: |
+          aws ecr describe-repositories --repository-names openstatus/${{ matrix.service }} 2>/dev/null \
+            || aws ecr create-repository \
+                 --repository-name openstatus/${{ matrix.service }} \
+                 --image-scanning-configuration scanOnPush=true
 
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}
+          images: ${{ steps.ecr.outputs.registry }}/openstatus/${{ matrix.service }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -161,7 +182,7 @@ jobs:
       - name: Generate SBOM
         uses: anchore/sbom-action@v0
         with:
-          image: ${{ env.REGISTRY }}/${{ env.OWNER_LC }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}@${{ steps.build.outputs.digest }}
+          image: ${{ steps.ecr.outputs.registry }}/openstatus/${{ matrix.service }}@${{ steps.build.outputs.digest }}
           format: spdx-json
           output-file: sbom-${{ matrix.service }}.spdx.json
 
