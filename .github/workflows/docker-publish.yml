@@ -18,7 +18,7 @@ on:
       services:
         description: 'Services to build (comma-separated)'
         required: false
-        default: 'server,dashboard,workflows,private-location,status-page,checker'
+        default: 'server,dashboard,workflows,private-location,status-page,checker,private-location-probe'
         type: string
 
 concurrency:
@@ -53,13 +53,19 @@ jobs:
 
             # packages/** changes affect all services
             if echo "$CHANGED" | grep -q '^packages/'; then
-              SERVICES_LIST=("server" "dashboard" "workflows" "private-location" "status-page" "checker")
+              SERVICES_LIST=("server" "dashboard" "workflows" "private-location" "status-page" "checker" "private-location-probe")
             else
               for svc in server dashboard workflows private-location status-page checker; do
                 if echo "$CHANGED" | grep -q "^apps/$svc/"; then
                   SERVICES_LIST+=("$svc")
                 fi
               done
+              # `private-location-probe` shares context with `checker` (Go module
+              # in apps/checker/) but uses a different Dockerfile target — rebuild
+              # whenever apps/checker/** changes.
+              if echo "$CHANGED" | grep -q '^apps/checker/'; then
+                SERVICES_LIST+=("private-location-probe")
+              fi
             fi
 
             SERVICES=$(printf '%s\n' "${SERVICES_LIST[@]}" | jq -R . | jq -sc .)
@@ -101,6 +107,14 @@ jobs:
           - service: checker
             context: apps/checker
             dockerfile: apps/checker/Dockerfile
+          # private-location-probe — same Go module as `checker`, different
+          # Dockerfile target. Builds `cmd/private/main.go` (the agent that
+          # polls private-location for monitor list, runs probes, ingests
+          # results). Upstream openstatus does NOT publish this image; we
+          # publish it here as ghcr.io/theweathercompany/openstatus-private-location-probe.
+          - service: private-location-probe
+            context: apps/checker
+            dockerfile: apps/checker/private-location.Dockerfile
 
     steps:
       - name: Checkout repository
