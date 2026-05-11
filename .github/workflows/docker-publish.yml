@@ -20,6 +20,15 @@ on:
         required: false
         default: 'server,dashboard,workflows,private-location,status-page,checker,private-location-probe'
         type: string
+      target_env:
+        description: 'Target AWS account for ECR push (controls which Environment vars are loaded — dev/nonprod/prod)'
+        required: false
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - nonprod
+          - prod
 
 concurrency:
   group: docker-${{ github.ref }}
@@ -82,9 +91,11 @@ jobs:
     if: needs.prepare.outputs.services != '[]'
     timeout-minutes: 30
     # GitHub Environment provides AWS_ACCOUNT_ID + AWS_REGION vars (Mercury
-    # convention — same as mercury-actions release.yaml). Phase 1 publishes
-    # to dev only; nonprod/prod ECR is fed by replication when promoted.
-    environment: dev
+    # convention — same as mercury-actions release.yaml). On push to main
+    # the env defaults to `dev`. workflow_dispatch lets operators pick
+    # nonprod/prod for promotion. Add `required_reviewers` to the prod
+    # Environment in repo settings if you want manual approval gates.
+    environment: ${{ inputs.target_env || 'dev' }}
     permissions:
       contents: read
       id-token: write   # OIDC → AWS assume role (ECR push)
