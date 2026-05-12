@@ -8,17 +8,19 @@ import { user } from "@openstatus/db/src/schema";
 import { WelcomeEmail, sendEmail } from "@openstatus/emails";
 import { headers } from "next/headers";
 import { adapter } from "./adapter";
-import { GitHubProvider, GoogleProvider, ResendProvider } from "./providers";
+import { getEnabledProviders } from "./providers";
 
 export type { DefaultSession };
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   // debug: true,
   adapter,
-  providers:
-    process.env.NODE_ENV === "development" || process.env.SELF_HOST === "true"
-      ? [GitHubProvider, GoogleProvider, ResendProvider]
-      : [GitHubProvider, GoogleProvider],
+  // Providers are filtered by env at module init — see providers.ts. A
+  // missing env var means the provider isn't registered, the UI button
+  // doesn't render, and click-time "missing client_id" errors don't
+  // happen. Backward-compatible with the previous hosted-SaaS default
+  // because both Google and GitHub env vars are always set there.
+  providers: getEnabledProviders(),
   callbacks: {
     async signIn(params) {
       // We keep updating the user info when we loggin in

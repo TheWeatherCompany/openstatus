@@ -220,7 +220,18 @@ export const pageRouter = createTRPCRouter({
     // had then rejected.
     .input(UpdatePageCustomDomainInput)
     .mutation(async ({ ctx, input }) => {
-      if (input.customDomain.includes("openstatus")) {
+      // Two self-host-aware gates added below. Both default to upstream's
+      // hosted-SaaS behavior; SELF_HOST=true relaxes them. The flag is the
+      // same one already used in apps/status-page/src/proxy.ts and
+      // apps/dashboard/src/lib/auth/index.ts.
+      const isSelfHosted = process.env.SELF_HOST === "true";
+
+      // Hosted SaaS prevents customers squatting `*.openstatus.dev`
+      // subdomains via custom_domain. Self-hosters often *need* hostnames
+      // containing "openstatus" — e.g. a wildcard like
+      // `*.openstatus.example-corp.com` — so the rejection only applies
+      // on the hosted product.
+      if (!isSelfHosted && input.customDomain.includes("openstatus")) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Domain cannot contain 'openstatus'",
@@ -243,17 +254,25 @@ export const pageRouter = createTRPCRouter({
         });
         const newDomain = input.customDomain;
 
-        if (newDomain && !oldDomain) {
-          await addDomainToVercel(newDomain);
-        } else if (oldDomain && newDomain && newDomain !== oldDomain) {
-          await addDomainToVercel(newDomain);
-          await removeDomainFromVercel(oldDomain);
-        } else if (oldDomain && newDomain === "") {
-          await removeDomainFromVercel(oldDomain);
-        } else if (newDomain) {
-          await addDomainToVercel(newDomain);
-        } else {
-          return;
+        // Vercel domains API is only relevant on openstatus's hosted SaaS
+        // (where customer custom_domains terminate at Vercel's edge).
+        // Self-hosted deployments route through their own ALB/ingress and
+        // don't need Vercel involvement. Skipping these calls prevents
+        // 401s when VERCEL_AUTH_BEARER_TOKEN is unset (the default
+        // self-hosted state).
+        if (!isSelfHosted) {
+          if (newDomain && !oldDomain) {
+            await addDomainToVercel(newDomain);
+          } else if (oldDomain && newDomain && newDomain !== oldDomain) {
+            await addDomainToVercel(newDomain);
+            await removeDomainFromVercel(oldDomain);
+          } else if (oldDomain && newDomain === "") {
+            await removeDomainFromVercel(oldDomain);
+          } else if (newDomain) {
+            await addDomainToVercel(newDomain);
+          } else {
+            return;
+          }
         }
 
         await updatePageCustomDomain({
