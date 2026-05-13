@@ -1,0 +1,13 @@
+{
+  "name": "@openstatus/migrate-runner",
+  "version": "0.0.1",
+  "private": true,
+  "description": "One-shot Drizzle migration runner for self-hosted OpenStatus on Mercury. Consumed by the drizzle-migrate-hook in mercury-charts/charts/openstatus-stack. Has its own package.json (not a workspace member) so bun install resolves cleanly outside the monorepo lockfile context.",
+  "type": "module",
+  "dependencies": {
+    "@libsql/client": "0.15.15",
+    "@t3-oss/env-core": "0.13.10",
+    "drizzle-orm": "0.44.4",
+    "zod": "4.1.13"
+  }
+}

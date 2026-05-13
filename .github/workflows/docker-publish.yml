@@ -11,6 +11,7 @@ on:
       - "apps/private-location/**"
       - "apps/status-page/**"
       - "apps/checker/**"
+      - "apps/migrate-runner/**"
       - "packages/**"
       - "docker-compose.yaml"
   workflow_dispatch:
@@ -18,7 +19,7 @@ on:
       services:
         description: 'Services to build (comma-separated)'
         required: false
-        default: 'server,dashboard,workflows,private-location,status-page,checker,private-location-probe'
+        default: 'server,dashboard,workflows,private-location,status-page,checker,private-location-probe,migrate-runner'
         type: string
       target_env:
         description: 'Target AWS account for ECR push (controls which Environment vars are loaded — dev/nonprod/prod)'
@@ -60,11 +61,12 @@ jobs:
             CHANGED=$(git diff --name-only HEAD~1 HEAD)
             SERVICES_LIST=()
 
-            # packages/** changes affect all services
+            # packages/** changes affect all services (including migrate-runner,
+            # which pulls packages/db source into its image).
             if echo "$CHANGED" | grep -q '^packages/'; then
-              SERVICES_LIST=("server" "dashboard" "workflows" "private-location" "status-page" "checker" "private-location-probe")
+              SERVICES_LIST=("server" "dashboard" "workflows" "private-location" "status-page" "checker" "private-location-probe" "migrate-runner")
             else
-              for svc in server dashboard workflows private-location status-page checker; do
+              for svc in server dashboard workflows private-location status-page checker migrate-runner; do
                 if echo "$CHANGED" | grep -q "^apps/$svc/"; then
                   SERVICES_LIST+=("$svc")
                 fi
@@ -129,6 +131,14 @@ jobs:
           - service: private-location-probe
             context: apps/checker
             dockerfile: apps/checker/private-location.Dockerfile
+          # migrate-runner — one-shot Drizzle migration image consumed by the
+          # drizzle-migrate-hook in mercury-charts/charts/openstatus-stack.
+          # Upstream does not publish this — see apps/migrate-runner/Dockerfile
+          # for the rationale (upstream service images are stripped runtime
+          # bundles that don't ship the migrate.mts source).
+          - service: migrate-runner
+            context: .
+            dockerfile: apps/migrate-runner/Dockerfile
 
     steps:
       - name: Checkout repository
