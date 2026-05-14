@@ -31,12 +31,15 @@ export const GoogleProvider = Google({
   },
 });
 
-// Okta uses NextAuth's built-in env reading: AUTH_OKTA_ID / AUTH_OKTA_SECRET
-// / AUTH_OKTA_ISSUER are picked up automatically when no explicit config is
-// passed (NextAuth v5 convention). Self-hosted deployments that already use
-// the OKTA_CLIENT_ID / OKTA_CLIENT_SECRET names should alias them at boot —
-// see the example in mercury-charts/charts/openstatus-stack/RUNBOOK.md.
+// Okta config is read from OKTA_CLIENT_ID / OKTA_CLIENT_SECRET / OKTA_ISSUER
+// — these are the canonical names already in use across the openstatus repo
+// + the TWC deployment (ALB OIDC also reads these). Passing them explicitly
+// here means we don't need to alias to NextAuth v5's AUTH_OKTA_* default
+// names at deploy time. Single naming convention, end-to-end.
 export const OktaProvider = Okta({
+  clientId: process.env.OKTA_CLIENT_ID,
+  clientSecret: process.env.OKTA_CLIENT_SECRET,
+  issuer: process.env.OKTA_ISSUER,
   allowDangerousEmailAccountLinking: true,
 });
 
