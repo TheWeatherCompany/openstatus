@@ -40,15 +40,13 @@ function buildProviders(): Provider[] {
   if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
     providers.push(GoogleProvider);
   }
-  // Gate the Okta button on the same env-var names the rest of the deployment
-  // uses (OKTA_CLIENT_ID/SECRET for the ALB OIDC + dashboard NextAuth; the
-  // explicit issuer is set per-tenant via OKTA_ISSUER). providers.ts passes
-  // these values to the Okta() provider config so NextAuth doesn't fall
-  // through to its default AUTH_OKTA_* env-var auto-discovery.
+  // Okta gated on NextAuth v5's auto-discovery names (AUTH_OKTA_*) — same
+  // convention as the other OAuth providers above. providers.ts passes
+  // nothing to Okta(), so NextAuth reads these env vars directly.
   if (
-    process.env.OKTA_CLIENT_ID &&
-    process.env.OKTA_CLIENT_SECRET &&
-    process.env.OKTA_ISSUER
+    process.env.AUTH_OKTA_ID &&
+    process.env.AUTH_OKTA_SECRET &&
+    process.env.AUTH_OKTA_ISSUER
   ) {
     providers.push(OktaProvider);
   }
