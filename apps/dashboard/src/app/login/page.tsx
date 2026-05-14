@@ -71,9 +71,9 @@ export default async function Page(props: {
             </LoginButton>
           </form>
         ) : null}
-        {process.env.AUTH_OKTA_ID &&
-        process.env.AUTH_OKTA_SECRET &&
-        process.env.AUTH_OKTA_ISSUER ? (
+        {process.env.OKTA_CLIENT_ID &&
+        process.env.OKTA_CLIENT_SECRET &&
+        process.env.OKTA_ISSUER ? (
           <form
             action={async () => {
               "use server";
