@@ -16,6 +16,7 @@ import {
   FormCardHeader,
   FormCardTitle,
 } from "@/components/forms/form-card";
+import { getPublicConfig } from "@/lib/public-config";
 import { useTRPC } from "@/lib/trpc/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -166,7 +167,7 @@ export function FormApiKey() {
         <FormCardFooterInfo>
           Trigger monitors via CLI, CI/CD or create your own status page.{" "}
           <Link
-            href="https://api.openstatus.dev/v1"
+            href={`${getPublicConfig().openstatusUrl}/v1`}
             rel="noreferrer"
             target="_blank"
           >

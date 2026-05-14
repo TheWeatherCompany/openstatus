@@ -4,7 +4,9 @@ import "./globals.css";
 import { TailwindIndicator } from "@/components/tailwind-indicator";
 import { ThemeProvider } from "@/components/theme-provider";
 import { auth } from "@/lib/auth";
+import { publicConfigInlineScript } from "@/lib/public-config";
 import { TRPCReactProvider } from "@/lib/trpc/client";
+import Script from "next/script";
 import { OpenPanelComponent } from "@openpanel/nextjs";
 import { Toaster } from "@openstatus/ui/components/ui/sonner";
 import { cn } from "@openstatus/ui/lib/utils";
@@ -91,6 +93,18 @@ export default async function RootLayout({
           "font-sans antialiased ",
         )}
       >
+        {/*
+          Inject runtime public-config BEFORE any client bundle executes.
+          `next/script` with strategy="beforeInteractive" handles head/body
+          placement and timing correctly — manually putting <head> in
+          RootLayout fights Next.js's metadata-managed head and caused
+          hydration mismatches (React error #418). See public-config.ts.
+        */}
+        <Script
+          id="openstatus-public-config"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: publicConfigInlineScript() }}
+        />
         <SessionProvider session={session}>
           <TRPCReactProvider>
             <NuqsAdapter>

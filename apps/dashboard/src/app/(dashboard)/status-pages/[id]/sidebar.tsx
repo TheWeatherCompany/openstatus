@@ -3,6 +3,7 @@
 import { Link } from "@/components/common/link";
 import { TableCellLink } from "@/components/data-table/table-cell-link";
 import { SidebarRight } from "@/components/nav/sidebar-right";
+import { getPublicConfig } from "@/lib/public-config";
 import { useTRPC } from "@/lib/trpc/client";
 import {
   Tooltip,
@@ -25,7 +26,12 @@ export function Sidebar() {
 
   if (!statusPage) return null;
 
-  const BADGE_URL = `https://${statusPage.slug}.openstatus.dev/badge/v2`;
+  // Status page hostname pattern (subdomain wildcard). statusPageOrigin is
+  // configurable per deploy — defaults to upstream `openstatus.dev`, set to
+  // your wildcard cert domain (e.g. `status.weather.com`) when self-hosting.
+  const { statusPageOrigin } = getPublicConfig();
+  const STATUS_PAGE_HOST = `${statusPage.slug}.${statusPageOrigin}`;
+  const BADGE_URL = `https://${STATUS_PAGE_HOST}/badge/v2`;
 
   return (
     <SidebarRight
@@ -40,7 +46,7 @@ export function Sidebar() {
                 <Link
                   href={`https://${
                     statusPage.customDomain ||
-                    `${statusPage.slug}.openstatus.dev`
+                    STATUS_PAGE_HOST
                   }`}
                   target="_blank"
                 >
@@ -136,7 +142,7 @@ export function Sidebar() {
           typeof window !== "undefined" &&
           window.open(
             `https://${
-              statusPage.customDomain || `${statusPage.slug}.openstatus.dev`
+              statusPage.customDomain || STATUS_PAGE_HOST
             }`,
             "_blank",
           ),

@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     follow: true,
   },
   alternates: {
-    canonical: "https://app.openstatus.dev/login",
+    canonical: `${process.env.OPENSTATUS_URL || "https://app.openstatus.dev"}/login`,
   },
 };
 
@@ -45,28 +45,47 @@ export default async function Page(props: {
             <Separator />
           </div>
         ) : null}
-        <form
-          action={async () => {
-            "use server";
-            await signIn("github", { redirectTo: redirectTo ?? undefined });
-          }}
-          className="w-full"
-        >
-          <LoginButton type="submit" provider="github">
-            Sign in with GitHub <GitHubIcon className="ml-2 h-4 w-4" />
-          </LoginButton>
-        </form>
-        <form
-          action={async () => {
-            "use server";
-            await signIn("google", { redirectTo: redirectTo ?? undefined });
-          }}
-          className="w-full"
-        >
-          <LoginButton type="submit" provider="google">
-            Sign in with Google <GoogleIcon className="ml-2 h-4 w-4" />
-          </LoginButton>
-        </form>
+        {process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET ? (
+          <form
+            action={async () => {
+              "use server";
+              await signIn("github", { redirectTo: redirectTo ?? undefined });
+            }}
+            className="w-full"
+          >
+            <LoginButton type="submit" provider="github">
+              Sign in with GitHub <GitHubIcon className="ml-2 h-4 w-4" />
+            </LoginButton>
+          </form>
+        ) : null}
+        {process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET ? (
+          <form
+            action={async () => {
+              "use server";
+              await signIn("google", { redirectTo: redirectTo ?? undefined });
+            }}
+            className="w-full"
+          >
+            <LoginButton type="submit" provider="google">
+              Sign in with Google <GoogleIcon className="ml-2 h-4 w-4" />
+            </LoginButton>
+          </form>
+        ) : null}
+        {process.env.AUTH_OKTA_ID &&
+        process.env.AUTH_OKTA_SECRET &&
+        process.env.AUTH_OKTA_ISSUER ? (
+          <form
+            action={async () => {
+              "use server";
+              await signIn("okta", { redirectTo: redirectTo ?? undefined });
+            }}
+            className="w-full"
+          >
+            <LoginButton type="submit" provider="okta">
+              Sign in with Okta
+            </LoginButton>
+          </form>
+        ) : null}
       </div>
       <p className="mx-auto max-w-md text-pretty px-8 text-center text-muted-foreground text-xs">
         By clicking continue, you agree to our{" "}

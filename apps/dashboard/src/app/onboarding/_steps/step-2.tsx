@@ -17,6 +17,7 @@ import {
   OnboardingStepper,
 } from "@/components/layout/onboarding-layout";
 import { OnboardingStatusPagePreview } from "@/components/onboarding/status-page-preview";
+import { getPublicConfig } from "@/lib/public-config";
 import type { ThemeKey } from "@openstatus/theme-store";
 import { Button } from "@openstatus/ui/components/ui/button";
 import { ArrowRight } from "lucide-react";
@@ -76,8 +77,8 @@ export function Step2({
         </OnboardingStepHeader>
         {isLocked ? (
           <OnboardingLockedSummary
-            value={`${createdPageData?.slug}.openstatus.dev`}
-            href={`https://${createdPageData?.slug}.openstatus.dev`}
+            value={`${createdPageData?.slug}.${getPublicConfig().statusPageOrigin}`}
+            href={`https://${createdPageData?.slug}.${getPublicConfig().statusPageOrigin}`}
             helper="Theme, components, and visibility are editable later from page settings."
           />
         ) : (

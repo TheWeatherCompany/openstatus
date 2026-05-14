@@ -11,6 +11,7 @@ import {
   FormCardTitle,
   FormCardUpgrade,
 } from "@/components/forms/form-card";
+import { getPublicConfig } from "@/lib/public-config";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@openstatus/ui/components/ui/button";
 import {
@@ -94,7 +95,7 @@ export function FormOtel({
                   <FormLabel>Endpoint</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="https://otel.openstatus.dev/api/v1/metrics"
+                      placeholder={`${getPublicConfig().openstatusUrl}/api/otel/v1/metrics`}
                       disabled={locked}
                       {...field}
                     />

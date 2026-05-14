@@ -2,12 +2,24 @@ import { OpenPanel, type PostEventPayload } from "@openpanel/sdk";
 import { env } from "../env";
 import type { EventProps } from "./events";
 
-const op = new OpenPanel({
-  clientId: env.NEXT_PUBLIC_OPENPANEL_CLIENT_ID,
-  clientSecret: env.OPENPANEL_CLIENT_SECRET,
-});
+// Only construct the OpenPanel SDK when real creds are configured. Upstream
+// instantiated it unconditionally with whatever was in env (often empty
+// strings in self-hosted setups), which caused the SDK to fire /track POSTs
+// to api.openpanel.dev with an empty client_id → cascading 401s in the
+// browser console. The `setupAnalytics` function already early-returns a
+// no-op outside production; this guard catches the missing-creds case too.
+const hasOpenPanelCreds = Boolean(
+  env.NEXT_PUBLIC_OPENPANEL_CLIENT_ID && env.OPENPANEL_CLIENT_SECRET,
+);
 
-op.setGlobalProperties({
+const op = hasOpenPanelCreds
+  ? new OpenPanel({
+      clientId: env.NEXT_PUBLIC_OPENPANEL_CLIENT_ID,
+      clientSecret: env.OPENPANEL_CLIENT_SECRET,
+    })
+  : null;
+
+op?.setGlobalProperties({
   env: process.env.VERCEL_ENV || process.env.NODE_ENV || "localhost",
   // app_version
 });
@@ -25,6 +37,12 @@ export type IdentifyProps = {
 
 export async function setupAnalytics(props: IdentifyProps) {
   if (process.env.NODE_ENV !== "production") {
+    return noop();
+  }
+  // Same noop fallback when OpenPanel creds aren't configured (self-hosted
+  // without observability). Callers don't have to check; they just call
+  // .track(...) and get a logged no-op.
+  if (!op) {
     return noop();
   }
 

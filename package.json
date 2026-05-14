@@ -35,7 +35,7 @@
     "onlyBuiltDependencies": ["@sentry/cli", "@swc/core", "sharp"]
   },
   "name": "openstatus",
-  "workspaces": ["apps/*", "packages/**/*", "packages/config/*"],
+  "workspaces": ["apps/*", "!apps/migrate-runner", "packages/**/*", "packages/config/*"],
   "overrides": {
     "@react-email/preview-server": "npm:next@16.0.10"
   }

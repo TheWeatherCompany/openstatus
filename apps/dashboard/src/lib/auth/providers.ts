@@ -1,75 +1,44 @@
-import type { Provider } from "next-auth/providers";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import Okta from "next-auth/providers/okta";
 import Resend from "next-auth/providers/resend";
 
 /**
- * Build the list of enabled NextAuth providers based on what's configured.
+ * Provider instances. Kept as upstream-style module-level const exports so
+ * this file is safe to import from both client and server contexts — the
+ * provider constructors read their auth env vars (AUTH_GITHUB_*, AUTH_GOOGLE_*,
+ * AUTH_OKTA_*) internally via NextAuth, so OUR code never references
+ * `process.env.*` here. That avoids Next.js 16 Turbopack's "secret leaked
+ * across the client/server boundary" warning when the auth module is
+ * pulled in by both layout.tsx (Server Component) and proxy.ts (middleware).
  *
- * Each provider is included only when its credentials (or feature flag) are
- * present in the environment. Empty/missing env vars => provider isn't
- * registered => button doesn't appear on /login. This avoids non-functional
- * sign-in options that look working but fail at click-time with
- * "missing client_id" errors — common pain point on first self-host setup.
- *
- * Add a new provider:
- *   1. import it from `next-auth/providers/<name>`
- *   2. push it into `providers` here, gated on its required env vars
- *   3. set those env vars in your deployment (or leave empty to hide the button)
- *
- * Magic-link (Resend) stays gated by SELF_HOST=true OR NODE_ENV=development,
- * preserving prior upstream behavior.
+ * Conditional inclusion (which providers are actually wired into NextAuth)
+ * happens in ./index.ts — that file is server-only via the NextAuth handler,
+ * so reading `process.env.*` for the conditional checks is safe there.
  */
-export function getEnabledProviders(): Provider[] {
-  const providers: Provider[] = [];
 
-  if (process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET) {
-    providers.push(
-      GitHub({
-        allowDangerousEmailAccountLinking: true,
-      }),
-    );
-  }
+export const GitHubProvider = GitHub({
+  allowDangerousEmailAccountLinking: true,
+});
 
-  if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
-    providers.push(
-      Google({
-        allowDangerousEmailAccountLinking: true,
-        authorization: {
-          params: {
-            // See https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest
-            prompt: "select_account",
-          },
-        },
-      }),
-    );
-  }
+export const GoogleProvider = Google({
+  allowDangerousEmailAccountLinking: true,
+  authorization: {
+    params: {
+      // See https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest
+      prompt: "select_account",
+    },
+  },
+});
 
-  if (
-    process.env.AUTH_OKTA_ID &&
-    process.env.AUTH_OKTA_SECRET &&
-    process.env.AUTH_OKTA_ISSUER
-  ) {
-    providers.push(
-      Okta({
-        clientId: process.env.AUTH_OKTA_ID,
-        clientSecret: process.env.AUTH_OKTA_SECRET,
-        issuer: process.env.AUTH_OKTA_ISSUER,
-        allowDangerousEmailAccountLinking: true,
-      }),
-    );
-  }
-
-  if (
-    process.env.NODE_ENV === "development" ||
-    process.env.SELF_HOST === "true"
-  ) {
-    providers.push(ResendProvider);
-  }
-
-  return providers;
-}
+// Okta uses NextAuth's built-in env reading: AUTH_OKTA_ID / AUTH_OKTA_SECRET
+// / AUTH_OKTA_ISSUER are picked up automatically when no explicit config is
+// passed (NextAuth v5 convention). Self-hosted deployments that already use
+// the OKTA_CLIENT_ID / OKTA_CLIENT_SECRET names should alias them at boot —
+// see the example in mercury-charts/charts/openstatus-stack/RUNBOOK.md.
+export const OktaProvider = Okta({
+  allowDangerousEmailAccountLinking: true,
+});
 
 export const ResendProvider = Resend({
   apiKey: undefined, // REMINDER: keep undefined to avoid sending emails
@@ -79,24 +48,3 @@ export const ResendProvider = Resend({
     console.log("");
   },
 });
-
-/**
- * Back-compat exports — older code paths in this app and tests import the
- * provider symbols directly. Kept so this change is purely additive.
- *
- * @deprecated prefer `getEnabledProviders()` — these symbols are unconditional
- * and don't reflect whether the provider is actually enabled at runtime.
- */
-export const GitHubProvider = GitHub({
-  allowDangerousEmailAccountLinking: true,
-});
-
-export const GoogleProvider = Google({
-  allowDangerousEmailAccountLinking: true,
-  authorization: {
-    params: {
-      prompt: "select_account",
-    },
-  },
-});
-</content>
