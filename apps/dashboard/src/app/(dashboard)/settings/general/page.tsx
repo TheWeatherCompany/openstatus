@@ -12,10 +12,11 @@ import { FormApiKey } from "@/components/forms/settings/form-api-key";
 import { FormMembers } from "@/components/forms/settings/form-members";
 import { FormSlug } from "@/components/forms/settings/form-slug";
 import { FormWorkspace } from "@/components/forms/settings/form-workspace";
+import { getPublicConfig } from "@/lib/public-config";
 import { useTRPC } from "@/lib/trpc/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-const BASE_URL = "https://app.openstatus.dev/invite";
+const BASE_URL = `${getPublicConfig().openstatusUrl}/invite`;
 
 export default function Page() {
   const trpc = useTRPC();

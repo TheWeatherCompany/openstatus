@@ -12,16 +12,17 @@ import {
   FormCardUpgrade,
 } from "@/components/forms/form-card";
 import { useTRPC } from "@/lib/trpc/client";
+import { getPublicConfig } from "@/lib/public-config";
 import { Badge } from "@openstatus/ui/components/ui/badge";
 import { Button } from "@openstatus/ui/components/ui/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-const SERVER_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://api.openstatus.dev"
-    : "http://localhost:3000";
+// Slack agent calls our API on the same origin as the dashboard (self-host)
+// or upstream's api.openstatus.dev (hosted SaaS). Pull from runtime config
+// so the URL flips per env without a rebuild.
+const SERVER_URL = getPublicConfig().openstatusUrl;
 
 interface SlackIntegrationCardProps {
   locked?: boolean;

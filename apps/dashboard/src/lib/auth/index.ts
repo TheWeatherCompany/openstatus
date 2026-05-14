@@ -1,5 +1,6 @@
 import type { DefaultSession } from "next-auth";
 import NextAuth from "next-auth";
+import type { Provider } from "next-auth/providers";
 
 import { Events, setupAnalytics } from "@openstatus/analytics";
 import { db, eq } from "@openstatus/db";
@@ -8,17 +9,58 @@ import { user } from "@openstatus/db/src/schema";
 import { WelcomeEmail, sendEmail } from "@openstatus/emails";
 import { headers } from "next/headers";
 import { adapter } from "./adapter";
-import { GitHubProvider, GoogleProvider, ResendProvider } from "./providers";
+import {
+  GitHubProvider,
+  GoogleProvider,
+  OktaProvider,
+  ResendProvider,
+} from "./providers";
 
 export type { DefaultSession };
+
+/**
+ * Build the enabled-provider list based on which credentials are present in
+ * the environment. Lives here (server-only auth handler module) rather than
+ * in ./providers.ts so OUR code doesn't read `process.env.*` from a file
+ * that crosses the client/server boundary (Next.js 16 / Turbopack rejects
+ * that). Empty/missing env vars = provider not registered = no UI button.
+ *
+ * Magic-link (Resend) stays gated by SELF_HOST=true OR NODE_ENV=development,
+ * preserving prior upstream behavior.
+ */
+function buildProviders(): Provider[] {
+  const providers: Provider[] = [];
+
+  if (process.env.AUTH_GITHUB_ID && process.env.AUTH_GITHUB_SECRET) {
+    providers.push(GitHubProvider);
+  }
+  if (process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET) {
+    providers.push(GoogleProvider);
+  }
+  // NextAuth v5 reads AUTH_OKTA_ID / AUTH_OKTA_SECRET / AUTH_OKTA_ISSUER
+  // automatically; we gate registration on their presence so the Okta sign-in
+  // button only renders when the deployment has actually configured Okta.
+  if (
+    process.env.AUTH_OKTA_ID &&
+    process.env.AUTH_OKTA_SECRET &&
+    process.env.AUTH_OKTA_ISSUER
+  ) {
+    providers.push(OktaProvider);
+  }
+  if (
+    process.env.NODE_ENV === "development" ||
+    process.env.SELF_HOST === "true"
+  ) {
+    providers.push(ResendProvider);
+  }
+
+  return providers;
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   // debug: true,
   adapter,
-  providers:
-    process.env.NODE_ENV === "development" || process.env.SELF_HOST === "true"
-      ? [GitHubProvider, GoogleProvider, ResendProvider]
-      : [GitHubProvider, GoogleProvider],
+  providers: buildProviders(),
   callbacks: {
     async signIn(params) {
       // We keep updating the user info when we loggin in

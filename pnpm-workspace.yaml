@@ -1,4 +1,5 @@
 packages:
   - "apps/*"
+  - "!apps/migrate-runner"
   - "packages/**/*"
   - "packages/config/*"

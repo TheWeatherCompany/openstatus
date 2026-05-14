@@ -36,10 +36,13 @@ import { useEffect, useMemo, useTransition } from "react";
 import { toast } from "sonner";
 import { searchParamsParsers } from "./search-params";
 
-const BASE_URL =
-  process.env.NODE_ENV === "production"
-    ? "https://app.openstatus.dev"
-    : "http://localhost:3000";
+import { getPublicConfig } from "@/lib/public-config";
+
+// Canonical origin for billing-flow redirects (Stripe portal return URL,
+// etc). Self-hosted deployments don't run real billing, but the URL still
+// gets composed — pull from runtime config so the same image works in dev/
+// prod/k3d without per-env builds.
+const BASE_URL = getPublicConfig().openstatusUrl;
 
 function calculateTotalRequests(limits: Limits) {
   const monitors = limits.monitors;

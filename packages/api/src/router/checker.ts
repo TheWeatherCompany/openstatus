@@ -149,6 +149,99 @@ export const dnsOutput = z
     }),
   );
 
+/**
+ * Hosted-SaaS path: forward to openstatus-checker.fly.dev workers. Auth via
+ * CRON_SECRET (matches the fly app's expected token). Self-hosters can't
+ * use this — they don't have the openstatus.dev CRON_SECRET.
+ */
+async function fetchFlyCheckerProbe(input: z.infer<typeof httpTestInput>) {
+  const res = await fetch(
+    `https://openstatus-checker.fly.dev/ping/${input.region}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${env.CRON_SECRET}`,
+        "Content-Type": "application/json",
+        "fly-prefer-region": input.region,
+      },
+      body: JSON.stringify({
+        url: input.url,
+        method: input.method,
+        headers: input.headers?.reduce(
+          (acc, { key, value }) => {
+            if (!key) return acc;
+            return { ...acc, [key]: value };
+          },
+          {} as Record<string, string>,
+        ),
+        body: input.body,
+      }),
+      signal: AbortSignal.timeout(ABORT_TIMEOUT),
+    },
+  );
+  const json = await res.json();
+  return httpOutput.safeParse(json);
+}
+
+/**
+ * Self-hosted path: hit the target URL directly from this server. Returns
+ * a response shaped to upstream's `httpOutput` schema. Per-phase timing
+ * isn't measurable via fetch() so timing values are zeroed — the dashboard
+ * displays aggregate latency from the actual monitor runs (probe pod data
+ * in tinybird), not from this save-time probe.
+ */
+async function selfHostedHttpProbe(input: z.infer<typeof httpTestInput>) {
+  const headers: Record<string, string> = {};
+  for (const h of input.headers ?? []) {
+    if (h.key) headers[h.key] = h.value ?? "";
+  }
+  const method = (input.method ?? "GET").toUpperCase();
+  const start = performance.now();
+  let res: Response;
+  try {
+    res = await fetch(input.url, {
+      method,
+      headers,
+      body: ["GET", "HEAD"].includes(method) ? undefined : input.body,
+      signal: AbortSignal.timeout(ABORT_TIMEOUT),
+    });
+  } catch (err) {
+    return httpOutput.safeParse({
+      state: "error",
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+  const latency = Math.round(performance.now() - start);
+  const respHeaders: Record<string, string> = {};
+  res.headers.forEach((v, k) => {
+    respHeaders[k] = v;
+  });
+  let body: string | null = null;
+  try {
+    body = await res.text();
+  } catch {
+    /* leave null */
+  }
+  const t = 0;
+  return httpOutput.safeParse({
+    state: "success",
+    type: "http",
+    status: res.status,
+    latency,
+    headers: respHeaders,
+    timestamp: Date.now(),
+    timing: {
+      dnsStart: t, dnsDone: t,
+      connectStart: t, connectDone: t,
+      tlsHandshakeStart: t, tlsHandshakeDone: t,
+      firstByteStart: t, firstByteDone: t,
+      transferStart: t, transferDone: t,
+    },
+    body,
+    region: input.region,
+  });
+}
+
 export async function testHttp(input: z.infer<typeof httpTestInput>) {
   // Reject requests to our own domain to avoid loops
   if (input.url.includes("openstatus.dev")) {
@@ -158,34 +251,20 @@ export async function testHttp(input: z.infer<typeof httpTestInput>) {
     });
   }
 
-  try {
-    const res = await fetch(
-      `https://openstatus-checker.fly.dev/ping/${input.region}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${env.CRON_SECRET}`,
-          "Content-Type": "application/json",
-          "fly-prefer-region": input.region,
-        },
-        body: JSON.stringify({
-          url: input.url,
-          method: input.method,
-          headers: input.headers?.reduce(
-            (acc, { key, value }) => {
-              if (!key) return acc;
-              return { ...acc, [key]: value };
-            },
-            {} as Record<string, string>,
-          ),
-          body: input.body,
-        }),
-        signal: AbortSignal.timeout(ABORT_TIMEOUT),
-      },
-    );
+  // Self-hosted: hit the target URL directly from the server pod instead
+  // of forwarding to openstatus-checker.fly.dev (which expects auth via
+  // the hosted-SaaS CRON_SECRET; self-hosters can't replicate this).
+  // From inside the cluster the server can reach the user's internal
+  // hosts too, which fly.io workers couldn't anyway.
+  const isSelfHosted = process.env.SELF_HOST === "true";
 
-    const json = await res.json();
-    const result = httpOutput.safeParse(json);
+  try {
+    let result: ReturnType<typeof httpOutput.safeParse>;
+    if (isSelfHosted) {
+      result = await selfHostedHttpProbe(input);
+    } else {
+      result = await fetchFlyCheckerProbe(input);
+    }
 
     if (!result.success) {
       console.error(

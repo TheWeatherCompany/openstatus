@@ -23,16 +23,16 @@ import { columns } from "@/components/data-table/notifications/columns";
 import { FormSheetNotifier } from "@/components/forms/notifications/sheet";
 import { DataTable } from "@/components/ui/data-table/data-table";
 import { config } from "@/data/notifications.client";
+import { getPublicConfig } from "@/lib/public-config";
 import { useTRPC } from "@/lib/trpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useQueryStates } from "nuqs";
 import { searchParamsParsers } from "./search-params";
 
-// FIXME: WARNING we are using the `web` api url here
-const BASE_URL =
-  process.env.NODE_ENV === "development"
-    ? "http://localhost:3000"
-    : "https://www.openstatus.dev";
+// Used to compose the PagerDuty integration redirect_url. Pulls from
+// runtime config so it stays on our origin per-env (no more hardcoded
+// www.openstatus.dev fallback).
+const BASE_URL = getPublicConfig().openstatusUrl;
 
 export function Client() {
   const trpc = useTRPC();

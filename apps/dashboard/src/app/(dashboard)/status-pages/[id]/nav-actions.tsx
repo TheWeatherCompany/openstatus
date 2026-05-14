@@ -3,6 +3,7 @@
 import { QuickActions } from "@/components/dropdowns/quick-actions";
 import { NavFeedback } from "@/components/nav/nav-feedback";
 import { getActions } from "@/data/status-pages.client";
+import { getPublicConfig } from "@/lib/public-config";
 import { useTRPC } from "@/lib/trpc/client";
 import { Button } from "@openstatus/ui/components/ui/button";
 import {
@@ -50,6 +51,11 @@ export function NavActions() {
 
   if (!statusPage) return null;
 
+  // statusPageOrigin is the wildcard cert domain (e.g. `openstatus.dev`
+  // upstream, `status.weather.com` self-hosted). Falls back to upstream
+  // when unset.
+  const { statusPageOrigin } = getPublicConfig();
+
   return (
     <div className="flex items-center gap-2 text-sm">
       <NavFeedback />
@@ -59,7 +65,8 @@ export function NavActions() {
             <Button variant="ghost" size="sm" className="group h-7 w-7" asChild>
               <a
                 href={`https://${
-                  statusPage.customDomain || `${statusPage.slug}.openstatus.dev`
+                  statusPage.customDomain ||
+                  `${statusPage.slug}.${statusPageOrigin}`
                 }`}
                 target="_blank"
                 rel="noreferrer"

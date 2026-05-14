@@ -6,7 +6,12 @@ export const DESCRIPTION =
 
 const OG_TITLE = "openstatus";
 const OG_DESCRIPTION = "Monitor your services and keep your users informed.";
-const FOOTER = "app.openstatus.dev";
+// Origin shown in OG card footer + used as metadataBase. Server-side read
+// from OPENSTATUS_URL (request-time); falls back to upstream so this file
+// stays safe to render even when the env var is unset (e.g. local dev).
+const OPENSTATUS_ORIGIN =
+  process.env.OPENSTATUS_URL || "https://app.openstatus.dev";
+const FOOTER = OPENSTATUS_ORIGIN.replace(/^https?:\/\//, "");
 const IMAGE = "assets/og/dashboard-v2.png";
 
 export const defaultMetadata: Metadata = {
@@ -15,7 +20,7 @@ export const defaultMetadata: Metadata = {
     default: TITLE,
   },
   description: DESCRIPTION,
-  metadataBase: new URL("https://www.openstatus.dev"),
+  metadataBase: new URL(OPENSTATUS_ORIGIN),
   robots: {
     index: false,
     follow: false,
