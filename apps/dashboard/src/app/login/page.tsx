@@ -39,7 +39,7 @@ export default async function Page(props: {
       </div>
       <div className="grid gap-4 p-4">
         {process.env.NODE_ENV === "development" ||
-        process.env.SELF_HOST === "true" ? (
+        process.env.MAGIC_LINK_ENABLED === "true" ? (
           <div className="grid gap-4">
             <MagicLinkForm />
             <Separator />

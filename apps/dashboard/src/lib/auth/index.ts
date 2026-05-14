@@ -25,8 +25,11 @@ export type { DefaultSession };
  * that crosses the client/server boundary (Next.js 16 / Turbopack rejects
  * that). Empty/missing env vars = provider not registered = no UI button.
  *
- * Magic-link (Resend) stays gated by SELF_HOST=true OR NODE_ENV=development,
- * preserving prior upstream behavior.
+ * Magic-link (Resend) is gated by its own dedicated env var,
+ * MAGIC_LINK_ENABLED=true, so operators can run with SELF_HOST=true (which
+ * activates the rest of the fork's gated codepaths: Vercel-API skip,
+ * customDomain-rejection skip, etc.) WITHOUT exposing a magic-link login
+ * option. NODE_ENV=development also enables it for local-dev convenience.
  */
 function buildProviders(): Provider[] {
   const providers: Provider[] = [];
@@ -49,7 +52,7 @@ function buildProviders(): Provider[] {
   }
   if (
     process.env.NODE_ENV === "development" ||
-    process.env.SELF_HOST === "true"
+    process.env.MAGIC_LINK_ENABLED === "true"
   ) {
     providers.push(ResendProvider);
   }
